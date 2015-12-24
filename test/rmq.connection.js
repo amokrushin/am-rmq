@@ -1,20 +1,21 @@
-var assert = require( 'assert' ),
-    mockery = require( 'mockery' );
+'use strict';
 
-var consoleStub = {
-    log: function() {},
-    info: function() {},
-    error: function() {}
-}
+var assert = require( 'assert' ),
+    mockery = require( 'mockery' ),
+    consoleStub = {
+        log: function() {},
+        info: function() {},
+        error: function() {}
+    };
 
 describe( 'rmq.connection', function() {
-    var RmqConnection;
-    var settings = {
-        eNotFound: {host: 'ENOTFOUND'},
-        eConnRefused: {host: 'ECONNREFUSED'},
-        eConnReset: {host: 'ECONNRESET'},
-        valid: ''
-    }
+    var RmqConnection,
+        rmqSettings = {
+            eNotFound: {host: 'ENOTFOUND'},
+            eConnRefused: {host: 'ECONNREFUSED'},
+            eConnReset: {host: 'ECONNRESET'},
+            valid: ''
+        };
 
     before( function() {
         mockery.enable( {
@@ -25,11 +26,11 @@ describe( 'rmq.connection', function() {
 
         function amqplibConnectionStub() {
             var EventEmitter = require( 'events' ).EventEmitter,
-                connection = new EventEmitter;
+                connection = new EventEmitter();
             connection.close = function( callback ) {
                 connection.emit( 'close' );
                 callback();
-            }
+            };
             return connection;
         }
 
@@ -41,7 +42,7 @@ describe( 'rmq.connection', function() {
                     if( /ECONNREFUSED/.test( url ) ) error.code = 'ECONNREFUSED';
                     if( /ECONNRESET/.test( url ) ) error.code = 'ECONNRESET';
                     if( error.code ) return callback( error );
-                    callback( null, new amqplibConnectionStub() );
+                    callback( null, amqplibConnectionStub() );
                 }
             };
         }
@@ -57,29 +58,33 @@ describe( 'rmq.connection', function() {
 
     it( 'should inherit from event emitter', function( done ) {
         var rmqConnection = RmqConnection( consoleStub );
+
         rmqConnection.on( 'foo', done );
         rmqConnection.emit( 'foo' );
-    } )
+    } );
 
     it( 'should establish connection', function( done ) {
         var rmqConnection = RmqConnection( consoleStub );
+
         rmqConnection.on( 'connection.established', function( connection ) {
             done();
         } );
-        rmqConnection.start( settings.valid );
-    } )
+        rmqConnection.start( rmqSettings.valid );
+    } );
 
     it( 'should cause an error', function( done ) {
         var rmqConnection = RmqConnection( consoleStub );
+
         rmqConnection.on( 'connection.error', function( error ) {
-            done();
+            if( error.code === 'ECONNREFUSED' ) done();
         } );
-        rmqConnection.start( settings.eConnRefused );
-    } )
+        rmqConnection.start( rmqSettings.eConnRefused );
+    } );
 
     it( 'should close connection', function( done ) {
-        var rmqConnection = RmqConnection( consoleStub );
-        var counter = 0;
+        var rmqConnection = RmqConnection( consoleStub ),
+            counter = 0;
+
         rmqConnection.on( 'connection.established', function( connection ) {
             counter++;
             rmqConnection.stop();
@@ -89,12 +94,13 @@ describe( 'rmq.connection', function() {
                 if( counter === 1 ) done();
             }, 20 );
         } );
-        rmqConnection.start( settings.valid );
-    } )
+        rmqConnection.start( rmqSettings.valid );
+    } );
 
     it( 'should restart connection once', function( done ) {
-        var rmqConnection = RmqConnection( consoleStub );
-        var counter = 0;
+        var rmqConnection = RmqConnection( consoleStub ),
+            counter = 0;
+
         rmqConnection.on( 'connection.established', function( connection ) {
             counter++;
             if( counter === 2 )
@@ -110,33 +116,34 @@ describe( 'rmq.connection', function() {
                 connection.emit( 'close', new Error( 'connection error' ) );
             }
         } );
-        rmqConnection.start( settings.valid );
-    } )
+        rmqConnection.start( rmqSettings.valid );
+    } );
 
     it( 'should try to restart connection', function( done ) {
-        this.timeout( 1000 );
-        var rmqConnection = RmqConnection( consoleStub );
-        var reconnectCounter = 0;
-        rmqConnection.on( 'connection.established', function( connection ) {
+        var rmqConnection = RmqConnection( consoleStub ),
+            reconnectCounter = 0;
 
-        } );
+        this.timeout( 1000 );
+
         rmqConnection.on( 'connection.reconnect', function( counter ) {
             reconnectCounter = counter;
             if( counter > 2 ) rmqConnection.stop();
         } );
         // x2 100ms+200ms=300ms
         // x3 100ms+200ms+400ms=700ms
-        // so delay shoud be more than 700ms
+        // so delay should be more than 700ms
         setTimeout( function() {
             if( reconnectCounter === 3 ) done();
         }, 750 );
-        rmqConnection.start( settings.eConnRefused, true );
-    } )
+        rmqConnection.start( rmqSettings.eConnRefused, true );
+    } );
 
     it( 'should not try to restart connection', function( done ) {
+        var rmqConnection = RmqConnection( consoleStub ),
+            reconnectCounter = 0;
+
         this.timeout( 1000 );
-        var rmqConnection = RmqConnection( consoleStub );
-        var reconnectCounter = 0;
+
         rmqConnection.on( 'connection.established', function( connection ) {
 
         } );
@@ -145,11 +152,48 @@ describe( 'rmq.connection', function() {
             if( counter > 2 ) rmqConnection.stop();
         } );
         // x1 100ms
-        // so delay shoud be more than 100ms
+        // so delay should be more than 100ms
         setTimeout( function() {
             if( reconnectCounter === 0 ) done();
         }, 150 ); // first retry may be after 100ms
-        rmqConnection.start( settings.eConnRefused, false );
+        rmqConnection.start( rmqSettings.eConnRefused, false );
+    } );
+
+    it( 'should keep alive connection', function( done ) {
+        var rmqConnection = RmqConnection( consoleStub ),
+            counter = 0;
+
+        rmqConnection.start( rmqSettings.valid, true );
+
+        rmqConnection.keepAlive( function( connection ) {
+            setTimeout( function() {
+                if( ++counter === 10 ) return rmqConnection.stop();
+                connection.emit( 'close', new Error( 'connection error' ) );
+            }, 1 );
+        } );
+
+        setTimeout( function() {
+            if( counter === 10 ) done();
+        }, 20 );
+    } );
+
+    it( 'should restart connection with new settings', function( done ) {
+        var rmqConnection = RmqConnection( consoleStub ),
+            counterEstablished = 0,
+            counterClosed = 0;
+
+        rmqConnection.on( 'connection.established', function( connection ) {
+            counterEstablished++;
+            if( counterEstablished === 1 ) rmqConnection.start( rmqSettings.valid );
+            if( counterEstablished === 2 ) rmqConnection.start( rmqSettings.eNotFound );
+        } );
+        rmqConnection.on( 'connection.closed', function( connection ) {
+            counterClosed++;
+        } );
+        rmqConnection.start( rmqSettings.valid );
+        setTimeout( function() {
+            if( counterEstablished === 2 && counterClosed === 2 ) done();
+        }, 20 );
     } )
 
 } );
