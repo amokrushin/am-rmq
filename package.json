@@ -1,0 +1,19 @@
+{
+  "name": "am-rmq",
+  "version": "0.1.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/amokrushin/am-rmq.git"
+  },
+  "author": "Anton Mokrushin <anton@mokr.org> (mokr.org)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/amokrushin/am-rmq/issues"
+  },
+  "homepage": "https://github.com/amokrushin/am-rmq#readme"
+}
