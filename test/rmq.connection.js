@@ -37,11 +37,20 @@ describe( 'rmq.connection', function() {
         function amqplibMock() {
             return {
                 connect: function( url, callback ) {
-                    var error = new Error( 'error' );
-                    if( /ENOTFOUND/.test( url ) ) error.code = 'ENOTFOUND';
-                    if( /ECONNREFUSED/.test( url ) ) error.code = 'ECONNREFUSED';
-                    if( /ECONNRESET/.test( url ) ) error.code = 'ECONNRESET';
-                    if( error.code ) return callback( error );
+                    var err = new Error( 'err' );
+                    if( /ENOTFOUND/.test( url ) )
+                    {
+                        err.code = 'ENOTFOUND';
+                        err.host = 'http://example.com'
+                    }
+                    if( /ECONNREFUSED/.test( url ) )
+                    {
+                        err.code = 'ECONNREFUSED';
+                        err.address = '127.0.0.1';
+                        err.port = '5672';
+                    }
+                    if( /ECONNRESET/.test( url ) ) err.code = 'ECONNRESET';
+                    if( err.code ) return callback( err );
                     callback( null, amqplibConnectionStub() );
                 }
             };
@@ -194,6 +203,39 @@ describe( 'rmq.connection', function() {
         setTimeout( function() {
             if( counterEstablished === 2 && counterClosed === 2 ) done();
         }, 20 );
-    } )
+    } );
+
+    it( 'should test connection (ok)', function( done ) {
+        var rmqConnection = RmqConnection( consoleStub );
+
+        rmqConnection.start( rmqSettings.valid, false, function( err ) {
+            if( !err ) done();
+        } );
+
+    } );
+
+    it( 'should test connection (ENOTFOUND)', function( done ) {
+        var rmqConnection = RmqConnection( consoleStub );
+
+        rmqConnection.start( rmqSettings.eNotFound, false, function( err ) {
+            if( err.code === 'ENOTFOUND' ) done();
+        } );
+    } );
+
+    it( 'should test connection (ECONNRESET)', function( done ) {
+        var rmqConnection = RmqConnection( consoleStub );
+
+        rmqConnection.start( rmqSettings.eConnReset, false, function( err ) {
+            if( err.code === 'ECONNRESET' ) done();
+        } );
+    } );
+
+    it( 'should test connection (ECONNREFUSED)', function( done ) {
+        var rmqConnection = RmqConnection( consoleStub );
+
+        rmqConnection.start( rmqSettings.eConnRefused, false, function( err ) {
+            if( err.code === 'ECONNREFUSED' ) done();
+        } );
+    } );
 
 } );
