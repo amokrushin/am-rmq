@@ -28,16 +28,21 @@ module.exports = function( logger ) {
             var rmqreq = JSON.parse( msg.content.toString() );
             if( msg.properties.replyTo )
             {
-                handler( rmqreq, function( rmqres ) {
-                    channel.sendToQueue(
-                        msg.properties.replyTo,
-                        new Buffer( JSON.stringify( rmqres ) )
-                    );
-                    if( options.ack ) rmqres.ack ? channel.ack( msg ) : channel.nack( msg );
-                    rmqreq = null;
-                    rmqres = null;
-                    channel.close();
-                } );
+                try
+                {
+                    handler( rmqreq, function( rmqres ) {
+                        channel.sendToQueue(
+                            msg.properties.replyTo,
+                            new Buffer( JSON.stringify( rmqres ) )
+                        );
+                        if( options.ack ) rmqres.ack ? channel.ack( msg ) : channel.nack( msg );
+                        rmqreq = null;
+                        rmqres = null;
+                    } );
+                } catch( e )
+                {
+                    logger.error( e );
+                }
             }
             else
             {
