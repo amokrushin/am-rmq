@@ -186,6 +186,29 @@ describe( 'rmq.connection', function() {
         }, 20 );
     } );
 
+    it( 'should return connection once', function( done ) {
+        var rmqConnection = RmqConnection( consoleStub ),
+            counterA = 0,
+            counterB = 0;
+
+        rmqConnection.start( rmqSettings.valid, true );
+
+        rmqConnection.keepAlive( function( connection ) {
+            setTimeout( function() {
+                if( ++counterA === 10 ) return rmqConnection.stop();
+                connection.emit( 'close', new Error( 'connection error' ) );
+            }, 1 );
+        } );
+
+        rmqConnection.connection( function( connection ) {
+            counterB++;
+        } );
+
+        setTimeout( function() {
+            if( counterA === 10 && counterB === 1 ) done();
+        }, 20 );
+    } );
+
     it( 'should restart connection with new settings', function( done ) {
         var rmqConnection = RmqConnection( consoleStub ),
             counterEstablished = 0,
