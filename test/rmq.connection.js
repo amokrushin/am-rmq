@@ -14,7 +14,8 @@ describe( 'rmq.connection', function() {
             eNotFound: {host: 'ENOTFOUND'},
             eConnRefused: {host: 'ECONNREFUSED'},
             eConnReset: {host: 'ECONNRESET'},
-            valid: ''
+            valid: {host: 'VALID1'},
+            valid2: {host: 'VALID2'}
         };
 
     before( function() {
@@ -209,6 +210,27 @@ describe( 'rmq.connection', function() {
         }, 20 );
     } );
 
+    it( 'should not restart connection with same settings', function( done ) {
+        var rmqConnection = RmqConnection( consoleStub ),
+            counterEstablished = 0,
+            counterClosed = 0;
+
+        rmqConnection.on( 'connection.established', function( connection ) {
+            counterEstablished++;
+            rmqConnection.start( rmqSettings.valid );
+            setTimeout( function() {
+                rmqConnection.stop();
+            }, 5 );
+        } );
+        rmqConnection.on( 'connection.closed', function( connection ) {
+            counterClosed++;
+        } );
+        rmqConnection.start( rmqSettings.valid );
+        setTimeout( function() {
+            if( counterEstablished === 1 && counterClosed === 1 ) done();
+        }, 20 );
+    } );
+
     it( 'should restart connection with new settings', function( done ) {
         var rmqConnection = RmqConnection( consoleStub ),
             counterEstablished = 0,
@@ -216,8 +238,8 @@ describe( 'rmq.connection', function() {
 
         rmqConnection.on( 'connection.established', function( connection ) {
             counterEstablished++;
-            if( counterEstablished === 1 ) rmqConnection.start( rmqSettings.valid );
-            if( counterEstablished === 2 ) rmqConnection.start( rmqSettings.eNotFound );
+            if( counterEstablished === 1 ) rmqConnection.start( rmqSettings.valid2 );
+            if( counterEstablished === 2 ) rmqConnection.stop();
         } );
         rmqConnection.on( 'connection.closed', function( connection ) {
             counterClosed++;
