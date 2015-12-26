@@ -26,9 +26,9 @@ module.exports = function( logger ) {
     function rmqQueueReqRes( channel, options, handler ) {
         return function( msg ) {
             var rmqreq = JSON.parse( msg.content.toString() );
-            if( msg.properties.replyTo )
+            try
             {
-                try
+                if( msg.properties.replyTo )
                 {
                     handler( rmqreq, function( rmqres ) {
                         channel.sendToQueue(
@@ -39,15 +39,15 @@ module.exports = function( logger ) {
                         rmqreq = null;
                         rmqres = null;
                     } );
-                } catch( e )
-                {
-                    logger.error( e );
                 }
-            }
-            else
+                else
+                {
+                    handler( rmqreq );
+                    rmqreq = null;
+                }
+            } catch( e )
             {
-                handler( rmqreq );
-                channel.close();
+                logger.error( e );
             }
         }
     }
@@ -68,22 +68,29 @@ module.exports = function( logger ) {
             rmqChannel( function( err, channel ) {
                 if( err ) return logger.error( err );
                 channel.assertExchange( exchange, 'fanout', {durable: false} );
-                channel.assertQueue( '', {exclusive: true}, function( err, q ) {
-                    if( err ) return logger.error( err );
-                    var messages = [];
+                if( rmqres )
+                {
+                    channel.assertQueue( '', {exclusive: true}, function( err, q ) {
+                        if( err ) return logger.error( err );
+                        var messages = [];
 
-                    channel.consume( q.queue, function( msg ) {
-                        messages.push( JSON.parse( msg.content.toString() ) );
-                    }, {noAck: true} );
+                        channel.consume( q.queue, function( msg ) {
+                            messages.push( JSON.parse( msg.content.toString() ) );
+                        }, {noAck: true} );
 
-                    channel.publish( exchange, '', new Buffer( JSON.stringify( rmqreq ) ), {replyTo: q.queue} );
+                        channel.publish( exchange, '', new Buffer( JSON.stringify( rmqreq ) ), {replyTo: q.queue} );
 
-                    setTimeout( function() {
-                        channel.deleteQueue( q.queue );
-                        channel.close();
-                        rmqres( messages );
-                    }, options.timeout || 5000 );
-                } );
+                        setTimeout( function() {
+                            channel.deleteQueue( q.queue );
+                            channel.close();
+                            rmqres( messages );
+                        }, options.timeout || 5000 );
+                    } );
+                }
+                else
+                {
+                    channel.publish( exchange, '', new Buffer( JSON.stringify( rmqreq ) ) );
+                }
             } );
         },
         onBroadcast: function( exchange, handler ) {
