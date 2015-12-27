@@ -55,7 +55,6 @@ module.exports = function( logger ) {
     return {
         connect: rmqConnection.start,
         queue: function( queue, options, rmqreq, rmqres ) {
-            console.log( 'queue' );
             rmqChannel( function( err, channel ) {
                 if( err ) return logger.error( err );
 
