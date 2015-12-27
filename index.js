@@ -30,12 +30,12 @@ module.exports = function( logger ) {
             {
                 if( msg.properties.replyTo )
                 {
-                    handler( rmqreq, function( rmqres ) {
+                    handler( rmqreq, function( rmqres, ack ) {
                         channel.sendToQueue(
                             msg.properties.replyTo,
                             new Buffer( JSON.stringify( rmqres ) )
                         );
-                        if( options.ack ) rmqres.ack ? channel.ack( msg ) : channel.nack( msg );
+                        if( options.ack ) ack ? channel.ack( msg ) : channel.nack( msg );
                         rmqreq = null;
                         rmqres = null;
                     } );
