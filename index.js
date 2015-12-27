@@ -54,6 +54,33 @@ module.exports = function( logger ) {
 
     return {
         connect: rmqConnection.start,
+        queue: function( queue, options, rmqreq, rmqres ) {
+            console.log( 'queue' );
+            rmqChannel( function( err, channel ) {
+                if( err ) return logger.error( err );
+
+                channel.assertQueue( queue );
+                if( rmqres )
+                {
+                    channel.assertQueue( '', {exclusive: true}, function( err, q ) {
+                        if( err ) return logger.error( err );
+
+                        channel.consume( q.queue, function( msg ) {
+                            channel.deleteQueue( q.queue );
+                            channel.close();
+                            rmqres( JSON.parse( msg.content.toString() ) );
+                        }, {noAck: true} );
+
+                        channel.sendToQueue( queue, new Buffer( JSON.stringify( rmqreq ) ), {replyTo: q.queue} );
+                    } );
+                }
+                else
+                {
+                    channel.sendToQueue( queue, new Buffer( JSON.stringify( rmqreq ) ) );
+                    channel.close();
+                }
+            } );
+        },
         onQueue: function( queue, options, handler ) {
             rmqChannelKeepAlive( function( err, channel ) {
                 if( err ) return logger.error( err );
