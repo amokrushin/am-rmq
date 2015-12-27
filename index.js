@@ -90,6 +90,7 @@ module.exports = function( logger ) {
                 else
                 {
                     channel.publish( exchange, '', new Buffer( JSON.stringify( rmqreq ) ) );
+                    channel.close();
                 }
             } );
         },
